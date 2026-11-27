@@ -3,7 +3,7 @@
 Petit site collaboratif pour organiser les cadeaux de Noël en famille.
 
 - **Site en ligne :** https://nonsset.github.io/noel-cadeaux/
-- **Version actuelle :** 1.2 — voir les [notes de version](CHANGELOG.md)
+- **Version actuelle :** 1.3 — voir les [notes de version](CHANGELOG.md)
 - **Support :** nonsset@gmail.com (aussi accessible depuis le bouton « Aide » du site)
 
 ## Ce que fait le site
@@ -24,5 +24,5 @@ Petit site collaboratif pour organiser les cadeaux de Noël en famille.
 - Sans configuration Firebase (`window.FIREBASE_CONFIG = null`), le site tourne en **mode démo** avec des données d'exemple stockées dans le navigateur.
 
 ## Accès et sécurité
-Chaque espace famille a un lien secret (`…/noel-cadeaux/#code`) et chacun a un code personnel.
+Chaque espace famille a un lien secret (`…/noel-cadeaux/#code`) et chacun a un code personnel. Chaque appareil mémorise les espaces déjà ouverts : l'adresse simple du site ramène au dernier utilisé.
 Ces protections sont faites dans l'interface et suffisent dans un cercle familial. Une personne qui a le lien et des connaissances techniques pourrait toutefois lire les données directement.

@@ -10,4 +10,5 @@
 - Travailler sur une branche, ouvrir une pull request vers `main`, puis fusionner : GitHub Pages republie `main`.
 - Tester en mode démo (copie avec `window.FIREBASE_CONFIG = null`) avant de publier.
 - Confidentialité à respecter : on ne doit jamais voir les participations à ses propres cadeaux, ni les surprises hors liste qui nous concernent, y compris quand on agit pour une personne représentée.
+- Une mise à jour ne doit jamais effacer ni masquer les données existantes : nouveaux champs facultatifs, pas de renommage de collection ou de champ sans migration, et tester qu'un espace créé avec la version précédente s'ouvre toujours.
 - Toute valeur venant de la base est échappée (`esc`) avant d'être insérée dans le HTML.

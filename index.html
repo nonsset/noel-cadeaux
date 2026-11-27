@@ -167,7 +167,11 @@ const num = s => { const v = parseFloat(String(s ?? '').replace(',', '.').replac
 const rid = (n=20) => { const a='abcdefghijkmnpqrstuvwxyz23456789'; return [...crypto.getRandomValues(new Uint8Array(n))].map(x => a[x % a.length]).join(''); };
 const ls = { get(k){ try{ return localStorage.getItem(k) }catch(e){ return null } }, set(k,v){ try{ localStorage.setItem(k,v) }catch(e){} } };
 const COLLS = ['meta','people','families','gifts','contributions'];
-const APP_VERSION = '1.2';
+const APP_VERSION = '1.3';
+const SPACE_RE = /^[a-z0-9]{16,40}$/;
+const knownSpaces = () => { try { const a = JSON.parse(ls.get('noel-espaces') || '[]'); return Array.isArray(a) ? a.filter(x => x && SPACE_RE.test(x.id)) : []; } catch(e) { return []; } };
+const rememberSpace = (id, t) => ls.set('noel-espaces', JSON.stringify([{id, title:t, at:Date.now()}, ...knownSpaces().filter(x => x.id !== id)].slice(0, 10)));
+const spaceFrom = txt => { const m = String(txt || '').match(/#?([a-z0-9]{16,40})\s*$/); return m ? m[1] : ''; };
 const CHANGELOG_URL = 'https://github.com/nonsset/noel-cadeaux/blob/main/CHANGELOG.md';
 const SUPPORT = ['nonsset', 'gmail.com'].join('@');
 const HELP = {
@@ -201,7 +205,8 @@ const HELP = {
 const HELP_GENERAL = [
   '« J’agis pour » : choisis pour qui tu fais les actions, toi ou une personne que tu représentes.',
   '« Inviter » : copie le lien de l’espace pour l’envoyer à la famille. Envoie toujours le lien complet, avec le code après le #.',
-  '« Changer » : te déconnecter de cet appareil.'];
+  '« Changer » : te déconnecter de cet appareil.',
+  'Ton appareil se souvient de ton espace : l’adresse simple du site t’y ramène. Sur un nouvel appareil, ouvre le lien complet reçu par la famille.'];
 const helpSeen = new Set();
 const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 const validPin = p => /^\d{4,6}$/.test(p);
@@ -505,6 +510,7 @@ function openHelp(tab){
     ${tab !== 'login' ? `<h4>Partout sur le site</h4><ul class="helplist">${HELP_GENERAL.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
     <div class="support"><b>Un souci, une question ?</b><br>Écris au support : ${esc(SUPPORT)}<br>
       <a class="btn" href="mailto:${SUPPORT}?subject=${subject}&body=${body}">Contacter le support</a></div>
+    ${knownSpaces().length > 1 ? `<h4>Espaces ouverts sur cet appareil</h4><ul class="helplist">${knownSpaces().map(x => `<li>${x.id === eventId ? `<b>${esc(x.title || 'Sans nom')}</b> (actuel)` : `<a href="#${esc(x.id)}">${esc(x.title || 'Sans nom')}</a>`} · <span class="hint">code ${esc(x.id.slice(0, 6))}…</span></li>`).join('')}</ul>` : ''}
     <p class="ver">Version ${APP_VERSION} · <a href="${CHANGELOG_URL}" target="_blank" rel="noopener">Nouveautés</a></p>`});
 }
 function openModal({title, body, submit='Enregistrer', cancel='Annuler', onSubmit, extra}){
@@ -660,9 +666,16 @@ $('#root').addEventListener('submit', async e => {
     if (ok === false) return;
     enter(pid);
   }
+  if (e.target.id === 'join') {
+    const id = spaceFrom(new FormData(e.target).get('l'));
+    if (!id) return toast('Ce lien ne contient pas de code d’espace');
+    document.activeElement?.blur(); eventId = id; history.replaceState(null, '', '#' + id); await start();
+  }
   if (e.target.id === 'create') {
     const n = String(new FormData(e.target).get('t')||'').trim() || 'Noël en famille';
-    eventId = rid(20); history.replaceState(null, '', '#' + eventId); await start(n);
+    document.activeElement?.blur();
+    confirmModal('Créer un nouvel espace vide ?', 'Les listes déjà saisies par ta famille ne seront pas dedans. Si un espace existe déjà, utilise plutôt son lien.', 'Créer quand même',
+      async () => { eventId = rid(20); history.replaceState(null, '', '#' + eventId); await start(n); });
   }
 });
 
@@ -673,22 +686,29 @@ async function start(newTitle){
   if (newTitle) await safe(() => store.set('meta','info',{title:newTitle, createdAt:Date.now()}))();
   let got = false;
   const timer = setTimeout(() => { if (!got) $('#root').innerHTML = '<div class="loading">Impossible de joindre la base. Vérifie ta connexion puis recharge la page.</div>'; }, 10000);
-  store.subscribe(s => { got = true; clearTimeout(timer); S = s; render(); },
+  store.subscribe(s => { got = true; clearTimeout(timer); S = s; rememberSpace(eventId, title()); render(); },
     err => { clearTimeout(timer); console.error(err); $('#root').innerHTML = '<div class="loading">Accès refusé par la base. Vérifie les règles Firestore (voir le guide).</div>'; });
 }
 function renderCreate(){
   $('#root').innerHTML = `<header class="top"><div class="toprow"><div class="brand">${giftSvg}<div><h1>Cadeaux de Noël</h1><p>Les listes de cadeaux de la famille</p></div></div></div><div style="height:22px"></div></header>
-  <main><form class="login" id="create"><h2>Créer l’espace de la famille</h2>
-    <p class="hint">Tu obtiendras un lien secret à envoyer à chacun. Si on t’a déjà envoyé un lien, ouvre plutôt celui-là.</p>
-    <label for="t">Nom de l’espace</label><input type="text" id="t" name="t" maxlength="50" value="Noël 2026">
-    <div style="margin-top:18px"><button class="btn red" type="submit">Créer</button></div></form></main>`;
+  <main><div class="login">
+    <form id="join"><h2>Rejoindre ta famille</h2>
+      <p>Ta famille a déjà un espace ? Ouvre le lien complet qu’on t’a envoyé (il se termine par <b>#</b> suivi d’un code), ou colle-le ici.</p>
+      <label for="jl">Lien reçu</label><input type="text" id="jl" name="l" autocomplete="off" placeholder="https://nonsset.github.io/noel-cadeaux/#…">
+      <div style="margin-top:14px"><button class="btn red" type="submit">Ouvrir l’espace</button></div></form>
+    <form id="create" style="margin-top:40px;border-top:1.5px dashed var(--line);padding-top:24px"><h3 style="font-size:22px">Ou créer un nouvel espace</h3>
+      <p class="hint">Seulement si personne n’en a encore créé pour ta famille : le nouvel espace sera vide.</p>
+      <label for="t">Nom de l’espace</label><input type="text" id="t" name="t" maxlength="50" value="Noël 2026">
+      <div style="margin-top:14px"><button class="btn line" type="submit">Créer un espace vide</button></div></form>
+  </div></main>`;
 }
 
 (async () => {
   const cfg = window.FIREBASE_CONFIG;
   if (!cfg) { eventId = 'demo'; store = demoStore(eventId); store.subscribe(s => { S = s; render(); }); return; }
-  const h = location.hash.slice(1);
-  if (/^[a-z0-9]{16,40}$/.test(h)) { eventId = h; try { await start(); } catch(e) { console.error(e); $('#root').innerHTML = '<div class="loading">Le site n’a pas pu se connecter à Firebase. Vérifie la configuration.</div>'; } }
+  let h = location.hash.slice(1);
+  if (!SPACE_RE.test(h) && knownSpaces().length) { h = knownSpaces()[0].id; history.replaceState(null, '', '#' + h); }
+  if (SPACE_RE.test(h)) { eventId = h; try { await start(); } catch(e) { console.error(e); $('#root').innerHTML = '<div class="loading">Le site n’a pas pu se connecter à Firebase. Vérifie la configuration.</div>'; } }
   else renderCreate();
   window.addEventListener('hashchange', () => location.reload());
 })();
