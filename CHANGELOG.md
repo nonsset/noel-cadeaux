@@ -2,6 +2,11 @@
 
 Les nouveautés du site, de la plus récente à la plus ancienne.
 
+## 1.3 — 27 novembre 2026
+- **Le site se souvient de ton espace** : en ouvrant l'adresse simple du site (sans le code après le #), tu retombes sur l'espace de ta famille au lieu de l'écran de création.
+- **Nouvel appareil** : l'écran d'accueil propose d'abord de coller le lien reçu de la famille ; créer un espace vide passe en second et demande une confirmation.
+- Dans l'aide : la liste des espaces déjà ouverts sur cet appareil, pour passer de l'un à l'autre.
+
 ## 1.2 — 27 novembre 2026
 - **Aide intégrée** : à la première visite de chaque page, un encadré explique comment elle fonctionne (bouton « J'ai compris » pour le masquer).
 - **Bouton « Aide »** en haut de chaque page : l'aide de la page en cours, les fonctions générales et le numéro de version.
