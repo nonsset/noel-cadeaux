@@ -105,6 +105,11 @@ main{max-width:1240px;margin:0 auto;padding:22px max(5vw,16px) 64px}
 .gactions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .price{white-space:nowrap;font-weight:800}
 .empty{padding:22px 18px;color:var(--mute);font-size:15px}
+.secret-h{padding:10px 18px;background:light-dark(#fdf3dc,#2a2414);color:light-dark(#7a5a12,#e9c77a);font-size:14px;font-weight:800;border-top:1px solid var(--line)}
+.prio.star{background:var(--gold);color:#3a2a00}
+.by{font-size:13px;color:var(--mute);margin:2px 0 0}
+.addsecret{padding:10px 18px 14px;border-top:1px solid var(--line)}
+.pin{letter-spacing:.4em;font-size:22px;text-align:center}
 .section-title{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 16px}
 .section-title h2{font-size:clamp(26px,3.4vw,34px)}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:20px;align-items:start}
@@ -121,7 +126,7 @@ main{max-width:1240px;margin:0 auto;padding:22px max(5vw,16px) 64px}
 .names .btn{font-size:17px}
 label{display:block;font-weight:800;margin:14px 0 6px;font-size:15px}
 .hint{font-weight:400;color:var(--mute);font-size:14px}
-input[type=text],input[type=url],textarea{width:100%;border:1.5px solid var(--line);background:var(--card);border-radius:12px;padding:11px 13px;font-size:16px;min-height:46px}
+input[type=text],input[type=url],input[type=password],textarea{width:100%;border:1.5px solid var(--line);background:var(--card);border-radius:12px;padding:11px 13px;font-size:16px;min-height:46px}
 textarea{min-height:90px;resize:vertical}
 .check{display:flex;gap:10px;align-items:center;font-weight:600;margin:14px 0 0}
 .check input{width:22px;height:22px;accent-color:var(--fir)}
@@ -154,6 +159,8 @@ const num = s => { const v = parseFloat(String(s ?? '').replace(',', '.').replac
 const rid = (n=20) => { const a='abcdefghijkmnpqrstuvwxyz23456789'; return [...crypto.getRandomValues(new Uint8Array(n))].map(x => a[x % a.length]).join(''); };
 const ls = { get(k){ try{ return localStorage.getItem(k) }catch(e){ return null } }, set(k,v){ try{ localStorage.setItem(k,v) }catch(e){} } };
 const COLLS = ['meta','people','families','gifts','contributions'];
+const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+const validPin = p => /^\d{4,6}$/.test(p);
 const FB = 'https://www.gstatic.com/firebasejs/10.12.2/';
 
 /* ---------- Stockage : démo locale ---------- */
@@ -177,6 +184,8 @@ function seed(d){
   G('g6','p2','Album photo des petits-enfants','',35,2);
   G('g7','p4','Casque audio sans fil','',90,1);
   G('g8','p5','Boîte de construction','',40,1);
+  d.gifts.g9 = {owner:'p3',title:'Places de concert',details:'Surprise hors liste',price:80,priority:0,link:'',secret:true,createdBy:'p2',createdAt:t+9};
+  d.contributions.c4 = {gift:'g9',person:'p1',amount:20,buyer:false,note:'',createdAt:t};
   d.contributions.c1 = {gift:'g1',person:'p1',amount:40,buyer:false,note:'',createdAt:t};
   d.contributions.c2 = {gift:'g1',person:'p2',amount:60,buyer:true,note:'Je commande en ligne',createdAt:t};
   d.contributions.c3 = {gift:'g7',person:'p2',amount:30,buyer:false,note:'',createdAt:t};
@@ -238,11 +247,21 @@ const acting = () => { const m = me(); if (!m) return null; const a = byId('peop
 const managed = m => S.people.filter(p => p.managedBy === m.id).sort(cmpName);
 const cmpName = (a,b) => a.name.localeCompare(b.name,'fr');
 const famsOf = p => (p.families || []).filter(id => byId('families', id));
-const giftsOf = pid => S.gifts.filter(g => g.owner === pid).sort((a,b) => (a.priority||0)-(b.priority||0) || (a.createdAt||0)-(b.createdAt||0));
+const giftsOf = pid => S.gifts.filter(g => g.owner === pid && !g.secret).sort((a,b) => (a.priority||0)-(b.priority||0) || (a.createdAt||0)-(b.createdAt||0));
 const contribsOf = gid => S.contributions.filter(c => c.gift === gid);
 const sum = arr => arr.reduce((s,c) => s + (c.amount || 0), 0);
 const nameOf = id => byId('people', id)?.name || 'Quelqu’un';
 const title = () => byId('meta','info')?.title || 'Noël en famille';
+const secretsFor = pid => S.gifts.filter(g => g.owner === pid && g.secret).sort((a,b) => (a.createdAt||0)-(b.createdAt||0));
+const admins = () => (byId('meta','info')?.admins || []).filter(id => byId('people', id));
+const isAdmin = () => !!me() && admins().includes(me().id);
+const canManage = () => isAdmin() || admins().length === 0;
+const canEditSecret = (g, A) => g.createdBy === A.id || g.createdBy === meId() || isAdmin() || byId('people', g.createdBy)?.managedBy === meId();
+async function hashPin(pid, pin){
+  const t = `noel|${eventId}|${pid}|${pin}`;
+  try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join(''); }
+  catch(e) { let h = 5381; for (const c of t) h = ((h * 33) ^ c.charCodeAt(0)) >>> 0; return 'x' + h.toString(16); }
+}
 
 function visibleOwners(A){
   const mine = new Set(famsOf(A));
@@ -265,6 +284,7 @@ function render(){
   const A = acting(); ui.acting = A.id;
   const team = [m, ...managed(m)];
   const tabs = [['listes','Les listes'],['maliste', A.id === m.id ? 'Ma liste' : 'Sa liste'],['parts','Mes parts'],['familles','Familles']];
+  if (canManage()) tabs.push(['orga','Organisation']);
   $('#root').innerHTML = `
   <header class="top"><div class="toprow">
     <div class="brand">${giftSvg}<div><h1>${esc(title())}</h1><p>Les listes de cadeaux de la famille</p></div></div>
@@ -277,7 +297,7 @@ function render(){
     <nav class="tabs">${tabs.map(([k,l]) => `<button class="tab" data-act="tab" data-id="${k}" ${ui.tab===k?'aria-current="page"':''}>${esc(l)}</button>`).join('')}</nav>
   </header>
   <main>${store.mode === 'demo' ? `<p class="note"><span>Mode démo : les données restent dans ce navigateur. Les prénoms et cadeaux sont des exemples.</span><button class="btn line small" data-act="reset">Réinitialiser la démo</button></p>` : ''}
-  ${({listes:viewLists, maliste:viewMine, parts:viewParts, familles:viewFamilies}[ui.tab] || viewLists)(A, m)}</main>`;
+  ${({listes:viewLists, maliste:viewMine, parts:viewParts, familles:viewFamilies, orga: canManage() ? viewOrga : viewLists}[ui.tab] || viewLists)(A, m)}</main>`;
 }
 
 function budgetBox(A){
@@ -290,7 +310,7 @@ function budgetBox(A){
 }
 
 function viewLists(A){
-  let owners = visibleOwners(A);
+  let owners = visibleOwners(A).filter(p => p.id !== meId());
   const famIds = [...new Set(owners.flatMap(famsOf))].filter(Boolean);
   const kids = (A.godchildren || []).filter(id => byId('people', id));
   if (ui.fam === 'kids') owners = owners.filter(p => kids.includes(p.id));
@@ -304,23 +324,26 @@ function viewLists(A){
 }
 
 function personCard(p, A){
-  const gs = giftsOf(p.id);
+  const gs = giftsOf(p.id), sec = secretsFor(p.id);
   const rep = p.managedBy ? ` <span class="hint">(représenté·e par ${esc(nameOf(p.managedBy))})</span>` : '';
   return `<section class="person"><header><h3>${esc(p.name)}${rep}</h3>
     <div class="tags">${famsOf(p).map(f => `<span class="tag">${esc(byId('families',f).name)}</span>`).join('')}</div></header>
-    ${gs.length ? gs.map((g,i) => giftRow(g, i, A)).join('') : `<p class="empty">Pas encore d’idées de cadeaux.</p>`}</section>`;
+    ${gs.length ? gs.map((g,i) => giftRow(g, i, A)).join('') : `<p class="empty">Pas encore d’idées de cadeaux.</p>`}
+    ${sec.length ? `<div class="secret-h">Surprises hors liste · invisibles pour ${esc(p.name)}</div>${sec.map(g => giftRow(g, -1, A)).join('')}` : ''}
+    <div class="addsecret"><button class="btn line small" data-act="addsecret" data-id="${esc(p.id)}">+ Proposer une surprise</button></div></section>`;
 }
 
 function giftRow(g, i, A){
   const cs = contribsOf(g.id), tot = sum(cs), mine = cs.find(c => c.person === A.id);
   const pct = g.price ? Math.min(100, tot/g.price*100) : 0, full = g.price && tot >= g.price;
   const link = /^https:\/\//i.test(g.link || '') ? `<a href="${esc(g.link)}" target="_blank" rel="noopener">Voir le lien</a>` : '';
-  return `<article class="gift"><div class="prio" title="Priorité ${i+1}">${i+1}</div>
-    <div><h4>${esc(g.title)}</h4>${g.details ? `<p class="det">${esc(g.details)}</p>` : ''}</div>
+  return `<article class="gift">${i < 0 ? '<div class="prio star" title="Surprise hors liste">★</div>' : `<div class="prio" title="Priorité ${i+1}">${i+1}</div>`}
+    <div><h4>${esc(g.title)}</h4>${g.details ? `<p class="det">${esc(g.details)}</p>` : ''}${g.secret ? `<p class="by">Proposé par ${esc(nameOf(g.createdBy))}</p>` : ''}</div>
     <div class="gfoot">
       ${g.price || tot ? `<div class="fund ${full?'full':''}">${g.price ? `<div class="meter"><i style="width:${pct.toFixed(1)}%"></i></div>` : ''}<span>${tot ? eur(tot) + ' réunis' + (g.price ? ' sur ~' + eur(g.price) : '') : '~' + eur(g.price) + ' · personne encore'}</span></div>` : ''}
       ${cs.length ? `<ul class="contribs">${cs.map(c => `<li class="${c.buyer?'buy':''}">${esc(nameOf(c.person))}${c.amount ? ' · ' + eur(c.amount) : ''}${c.buyer ? ' · achète' : ''}${c.note ? ' · ' + esc(c.note) : ''}</li>`).join('')}</ul>` : ''}
       <div class="gactions">${link}
+        ${g.secret && canEditSecret(g, A) ? `<button class="btn line small" data-act="editsecret" data-id="${esc(g.id)}">Modifier</button>` : ''}
         <button class="btn ${mine?'line':''} small" data-act="contrib" data-id="${esc(g.id)}">${mine ? 'Ma part : ' + (mine.amount ? eur(mine.amount) : 'à définir') : 'Participer'}</button></div>
     </div></article>`;
 }
@@ -329,7 +352,7 @@ function viewMine(A){
   const gs = giftsOf(A.id);
   return `<div class="section-title"><h2>${A.id === me().id ? 'Ma liste' : 'Liste de ' + esc(A.name)}</h2>
     <button class="btn red" data-act="addgift">Ajouter un cadeau</button></div>
-    <p class="note">Classe tes idées par priorité avec les flèches. Pour garder la surprise, tu ne vois pas qui participe à tes cadeaux.</p>
+    <p class="note">Classe tes idées par priorité avec les flèches. Pour garder la surprise, tu ne vois ni qui participe à tes cadeaux, ni combien, ni les surprises que les autres te préparent.</p>
     ${gs.length ? `<section class="person">${gs.map((g,i) => `<article class="gift"><div class="prio">${i+1}</div>
       <div><h4>${esc(g.title)}</h4>${g.details ? `<p class="det">${esc(g.details)}</p>` : ''}</div>
       <div class="gfoot"><div class="gactions">${g.price ? `<span class="price">~${eur(g.price)}</span>` : ''}
@@ -368,7 +391,7 @@ function viewFamilies(A, m){
     <div class="panel"><h3>Toutes les familles</h3>
       ${fams.length ? fams.map(f => { const mem = S.people.filter(p => famsOf(p).includes(f.id)).sort(cmpName);
         return `<div class="row"><div><b>${esc(f.name)}</b><div class="sub">${mem.length ? mem.map(p => esc(p.name)).join(', ') : 'Personne pour l’instant'}</div></div>
-          <div class="gactions"><button class="btn line small" data-act="renfam" data-id="${esc(f.id)}">Renommer</button><button class="btn line small" data-act="delfam" data-id="${esc(f.id)}">Supprimer</button></div></div>`; }).join('')
+          ${canManage() ? `<div class="gactions"><button class="btn line small" data-act="renfam" data-id="${esc(f.id)}">Renommer</button><button class="btn line small" data-act="delfam" data-id="${esc(f.id)}">Supprimer</button></div>` : ''}</div>`; }).join('')
         : '<p class="hint">Crée par exemple « Famille Martin » et « Famille Durand ».</p>'}
     </div>
     <div class="panel"><h3>Personnes que ${esc(m.name)} représente</h3>
@@ -378,6 +401,27 @@ function viewFamilies(A, m){
       <button class="btn line" data-act="represent" style="margin-top:12px">+ Représenter quelqu’un</button>
     </div>
   </div>`;
+}
+
+function viewOrga(A, m){
+  if (!admins().length) return `<div class="section-title"><h2>Organisation</h2></div>
+    <div class="panel"><h3>Personne n’organise encore cet espace</h3>
+    <p>L’organisateur peut fusionner les doublons, renommer ou supprimer une personne, réinitialiser un code oublié et gérer les familles. Il ne voit pas pour autant ce qu’on lui prépare.</p>
+    <button class="btn red" data-act="becomeadmin">Devenir organisateur</button></div>`;
+  const ps = [...S.people].sort(cmpName);
+  const orphans = S.contributions.filter(c => !byId('gifts', c.gift) || !byId('people', c.person)).length;
+  return `<div class="section-title"><h2>Organisation</h2></div>
+  <p class="note">Une personne inscrite deux fois ? « Fusionner » regroupe tout sur un seul prénom. Un code oublié ? « Nouveau code » permet d’en choisir un autre à la prochaine connexion.</p>
+  <div class="panel">${ps.map(p => `<div class="row"><div><b>${esc(p.name)}</b>${admins().includes(p.id) ? ' <span class="tag">organisateur</span>' : ''}
+      <div class="sub">${p.managedBy ? 'représenté·e par ' + esc(nameOf(p.managedBy)) : (p.pinHash ? 'code personnel défini' : 'pas encore de code')} · ${S.gifts.filter(g => g.owner === p.id && !g.secret).length} idée(s) · ${famsOf(p).map(f => esc(byId('families',f).name)).join(', ') || 'sans famille'}</div></div>
+      <div class="gactions">
+        <button class="btn line small" data-act="renperson" data-id="${esc(p.id)}">Renommer</button>
+        <button class="btn line small" data-act="merge" data-id="${esc(p.id)}">Fusionner…</button>
+        ${p.pinHash ? `<button class="btn line small" data-act="resetpin" data-id="${esc(p.id)}">Nouveau code</button>` : ''}
+        ${!p.managedBy && p.id !== m.id ? `<button class="btn line small" data-act="togadmin" data-id="${esc(p.id)}">${admins().includes(p.id) ? 'Retirer organisateur' : 'Nommer organisateur'}</button>` : ''}
+        ${p.id !== m.id ? `<button class="btn line small" data-act="delperson" data-id="${esc(p.id)}">Supprimer</button>` : ''}
+      </div></div>`).join('')}</div>
+  ${orphans ? `<div class="panel" style="margin-top:20px"><h3>Nettoyage</h3><p>${orphans} participation(s) pointent vers un cadeau ou une personne supprimés.</p><button class="btn line" data-act="cleanorphans">Les supprimer</button></div>` : ''}`;
 }
 
 function renderLogin(){
@@ -391,6 +435,8 @@ function renderLogin(){
     <form id="newme"><h3 style="font-size:22px;margin-top:10px">${ps.length ? 'Pas dans la liste ?' : 'Présente-toi'}</h3>
       <label for="nm">Ton prénom</label><input type="text" id="nm" name="name" autocomplete="given-name" maxlength="40" required>
       ${fams.length ? `<label>Ta ou tes familles <span class="hint">(plusieurs possibles)</span></label>${fams.map(f => `<label class="check"><input type="checkbox" name="fam" value="${esc(f.id)}"> ${esc(f.name)}</label>`).join('')}` : ''}
+      <label for="np">Choisis un code personnel <span class="hint">(4 à 6 chiffres, pour que personne ne puisse se faire passer pour toi)</span></label>
+      <input type="password" id="np" name="pin" inputmode="numeric" autocomplete="new-password" maxlength="6" class="pin">
       <div style="margin-top:18px"><button class="btn red" type="submit">C’est moi, j’entre</button></div></form>
   </div></main>`;
 }
@@ -403,7 +449,7 @@ function openModal({title, body, submit='Enregistrer', onSubmit, extra}){
   if (extra) modalExtra.x = extra.run;
   $('#sheet').innerHTML = `<h3>${esc(title)}</h3>${body}<div class="acts">${ex}<button type="button" class="btn line" data-mact="close">Annuler</button>${submit ? `<button class="btn red" type="submit">${esc(submit)}</button>` : ''}</div>`;
   $('#modal').hidden = false;
-  setTimeout(() => $('#sheet').querySelector('input[type=text],input:not([type]),textarea')?.focus(), 30);
+  setTimeout(() => $('#sheet').querySelector('input[type=text],input[type=password],input:not([type]),textarea')?.focus(), 30);
 }
 const closeModal = () => { $('#modal').hidden = true; modalSubmit = null; if (pending) render(); };
 function confirmModal(title, text, label, run){ openModal({title, body:`<p>${esc(text)}</p>`, submit:label, onSubmit:run}); }
@@ -436,7 +482,47 @@ const actions = {
   tab: id => { ui.tab = id; render(); scrollTo(0,0); },
   act: id => { ui.acting = id; ui.fam = 'all'; render(); toast('Tu agis maintenant pour ' + nameOf(id)); },
   fam: id => { ui.fam = id; render(); },
-  pick: id => { ls.set('noel-me-' + eventId, id); ui.acting = id; ui.tab = 'listes'; render(); },
+  pick: id => { const p = byId('people', id); if (!p) return;
+    const field = `<input type="password" id="pc" name="pin" inputmode="numeric" maxlength="6" class="pin"`;
+    if (p.pinHash) openModal({title:'Bonjour ' + p.name + ' !', submit:'Entrer',
+      body:`<label for="pc">Ton code personnel</label>${field} autocomplete="current-password"><p class="hint">Code oublié ? Demande à l’organisateur de le réinitialiser.</p>`,
+      onSubmit: async f => { if (await hashPin(id, String(f.get('pin')||'')) !== p.pinHash) { toast('Code incorrect'); return false; } enter(id); }});
+    else openModal({title:'Bienvenue ' + p.name + ' !', submit:'Enregistrer et entrer',
+      body:`<p>Choisis un code personnel de 4 à 6 chiffres. Il te sera demandé si tu reviens depuis un autre appareil.</p><label for="pc">Ton code</label>${field} autocomplete="new-password">`,
+      onSubmit: async f => { const pin = String(f.get('pin')||''); if (!validPin(pin)) { toast('Le code doit faire 4 à 6 chiffres'); return false; }
+        await store.update('people', id, {pinHash: await hashPin(id, pin)}); enter(id); }}); },
+  addsecret: pid => { const A = acting(); openModal({title:'Surprise pour ' + nameOf(pid), submit:'Proposer',
+      body:`<p class="hint">Ce cadeau hors liste n’apparaîtra jamais pour ${esc(nameOf(pid))}. Les autres le verront et pourront y participer.</p>` + giftForm(),
+      onSubmit: async f => { const d = giftData(f); if (!d.title) { toast('Donne un nom au cadeau'); return false; }
+        await store.add('gifts', {...d, owner:pid, secret:true, createdBy:A.id, priority:0, createdAt:Date.now()}); toast('Surprise ajoutée'); }}); },
+  editsecret: id => { const g = byId('gifts', id); if (!g) return; openModal({title:'Modifier la surprise', body:giftForm(g),
+      extra:{label:'Supprimer', run: async () => { await store.remove('gifts', id); toast('Surprise supprimée'); }},
+      onSubmit: async f => { const d = giftData(f); if (!d.title) { toast('Donne un nom au cadeau'); return false; } await store.update('gifts', id, d); }}); },
+  becomeadmin: async () => { if (admins().length) return; await store.set('meta','info',{admins:[meId()]}); toast('Tu es maintenant organisateur'); },
+  togadmin: id => { const a = admins(); return store.set('meta','info',{admins: a.includes(id) ? a.filter(x => x !== id) : [...a, id]}); },
+  resetpin: id => confirmModal('Nouveau code pour ' + nameOf(id) + ' ?', 'Son code actuel est effacé : à sa prochaine connexion, cette personne en choisira un nouveau.', 'Réinitialiser',
+      async () => { await store.update('people', id, {pinHash:''}); toast('Code réinitialisé'); }),
+  renperson: id => openModal({title:'Renommer', body:`<label for="rp">Prénom</label><input type="text" id="rp" name="n" maxlength="40" value="${esc(nameOf(id))}">`,
+      onSubmit: async f => { const n = String(f.get('n')||'').trim(); if (!n) return false; await store.update('people', id, {name:n}); }}),
+  cleanorphans: async () => { for (const c of S.contributions.filter(c => !byId('gifts', c.gift) || !byId('people', c.person))) await store.remove('contributions', c.id); toast('Nettoyage fait'); },
+  merge: id => { const p = byId('people', id), others = S.people.filter(x => x.id !== id).sort(cmpName); if (!p || !others.length) return;
+    openModal({title:'Fusionner « ' + p.name + ' »', submit:'Fusionner',
+      body:`<p>La liste, les participations et les familles de <b>${esc(p.name)}</b> seront rattachées à la personne choisie, puis « ${esc(p.name)} » sera supprimé.</p><label>Garder</label>
+        ${others.map((o,k) => `<label class="check"><input type="radio" name="to" value="${esc(o.id)}" ${k===0?'checked':''}> ${esc(o.name)}</label>`).join('')}`,
+      onSubmit: async f => { const to = String(f.get('to')||''), T = byId('people', to); if (!T || to === id) return false;
+        const gifts = S.gifts.filter(g => g.owner === id), made = S.gifts.filter(g => g.createdBy === id), cs = S.contributions.filter(c => c.person === id);
+        const reps = S.people.filter(q => q.managedBy === id), gods = S.people.filter(q => q.id !== to && (q.godchildren||[]).includes(id));
+        const fams = [...new Set([...famsOf(T), ...famsOf(p)])], kids = [...new Set([...(T.godchildren||[]), ...(p.godchildren||[])])].filter(x => x !== to && x !== id), adm = admins();
+        for (const g of gifts) await store.update('gifts', g.id, {owner:to});
+        for (const g of made) await store.update('gifts', g.id, {createdBy:to});
+        for (const c of cs) await store.update('contributions', c.id, {person:to});
+        for (const q of reps) await store.update('people', q.id, {managedBy:to});
+        for (const q of gods) await store.update('people', q.id, {godchildren:[...new Set(q.godchildren.map(x => x === id ? to : x))]});
+        await store.update('people', to, {families:fams, godchildren:kids, budget:T.budget || p.budget || 0});
+        if (adm.includes(id)) await store.set('meta','info',{admins:[...new Set(adm.map(x => x === id ? to : x))]});
+        await store.remove('people', id);
+        if (meId() === id) ls.set('noel-me-' + eventId, to);
+        toast('Fusion faite'); }}); },
   logout: () => { ls.set('noel-me-' + eventId, ''); ui.acting = null; render(); },
   reset: () => confirmModal('Réinitialiser la démo ?', 'Les exemples de départ reviennent, tes essais sont effacés.', 'Réinitialiser', async () => { await store.reset(); }),
   share: () => openModal({title:'Inviter la famille', submit:'', body:`<p>Envoie ce lien à chacun. Il suffit de cliquer dessus puis de choisir son prénom.</p>
@@ -479,10 +565,11 @@ const actions = {
         const pid = await store.add('people', {name:n, families:famsOf(m), budget:0, godchildren:[], managedBy:m.id, createdAt:Date.now()});
         ui.acting = pid; ui.tab = 'maliste'; toast('Tu agis maintenant pour ' + n); }}); },
   delperson: id => confirmModal('Supprimer ' + nameOf(id) + ' ?', 'Sa liste et ses participations seront effacées.', 'Supprimer', async () => {
-      for (const g of giftsOf(id)) await store.remove('gifts', g.id);
+      for (const g of S.gifts.filter(g => g.owner === id)) await store.remove('gifts', g.id);
       for (const c of S.contributions.filter(c => c.person === id)) await store.remove('contributions', c.id);
       await store.remove('people', id); ui.acting = meId(); })
 };
+function enter(id){ ls.set('noel-me-' + eventId, id); ui.acting = id; ui.tab = 'listes'; render(); }
 async function move(id, dir){
   const A = acting(), gs = giftsOf(A.id), i = gs.findIndex(g => g.id === id), j = i + dir;
   if (i < 0 || j < 0 || j >= gs.length) return;
@@ -498,10 +585,14 @@ $('#root').addEventListener('submit', async e => {
   e.preventDefault();
   if (e.target.id === 'newme') {
     const f = new FormData(e.target), n = String(f.get('name')||'').trim(); if (!n) return toast('Écris ton prénom');
-    const ex = S.people.find(p => !p.managedBy && p.name.trim().toLowerCase() === n.toLowerCase());
-    const id = ex ? ex.id : await safe(() => store.add('people', {name:n, families:f.getAll('fam'), budget:0, godchildren:[], managedBy:null, createdAt:Date.now()}))();
-    if (!id) return;
-    document.activeElement?.blur(); actions.pick(id);
+    const ex = S.people.find(p => !p.managedBy && norm(p.name) === norm(n));
+    document.activeElement?.blur();
+    if (ex) { toast(ex.name + ' existe déjà'); return actions.pick(ex.id); }
+    const pin = String(f.get('pin')||''); if (!validPin(pin)) return toast('Choisis un code de 4 à 6 chiffres');
+    const pid = rid(20);
+    const ok = await safe(async () => store.set('people', pid, {name:n, families:f.getAll('fam'), budget:0, godchildren:[], managedBy:null, pinHash: await hashPin(pid, pin), createdAt:Date.now()}))();
+    if (ok === false) return;
+    enter(pid);
   }
   if (e.target.id === 'create') {
     const n = String(new FormData(e.target).get('t')||'').trim() || 'Noël en famille';
