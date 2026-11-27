@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cadeaux de Noël</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,800&display=swap" rel="stylesheet">
+<script>
+/* =====================================================================
+   CONFIGURATION FIREBASE
+   Colle ici la configuration de ton projet Firebase (voir le guide).
+   Tant que c'est null, le site fonctionne en MODE DÉMO : les données
+   restent dans ce navigateur et ne sont pas partagées.
+   ===================================================================== */
+window.FIREBASE_CONFIG = null;
+/* Exemple :
+window.FIREBASE_CONFIG = {
+  apiKey: "AIza...",
+  authDomain: "mon-noel.firebaseapp.com",
+  projectId: "mon-noel",
+  storageBucket: "mon-noel.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abcdef"
+};
+*/
+</script>
+<style>
+/*
+VOICE: chaleureux et familial, mais net : une liste au Père Noël qui sert vraiment à s'organiser.
+IDEA: le carnet de commandes de l'atelier du Père Noël, chaque cadeau est une étiquette numérotée.
+PICTURE: les listes elles-mêmes, en étiquettes avec rang de priorité et jauge de cagnotte.
+COLOUR and TYPE: vert sapin profond, rouge ruban, or pour les cagnottes ; Baloo 2 + Nunito Sans.
+LAYOUT: bandeau vert pleine largeur, onglets, une colonne de cartes par personne, empilé sur mobile.
+*/
+:root{color-scheme:light dark;
+  --bg:light-dark(#ffffff,#0b1612);--ink:light-dark(#14211c,#eef3ef);--mute:light-dark(#5b6b64,#9fb1a8);
+  --card:light-dark(#ffffff,#13231d);--line:light-dark(#dfe6e2,#24382f);--soft:light-dark(#f1f5f2,#182b24);
+  --fir:#0f3b2e;--fir2:#145040;--red:#d7263d;--red-ink:light-dark(#b81d32,#ff6b7d);--gold:#e9b44c;--ok:light-dark(#1d7a4f,#5fd39b)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Nunito Sans",system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3,h4{font-family:"Baloo 2","Nunito Sans",sans-serif;line-height:1.1;margin:0;text-wrap:balance}
+button,input,textarea,select{font:inherit;color:inherit}
+a{color:var(--red-ink)}
+.top{background:var(--fir);color:#fff;padding:18px max(5vw,16px) 0;position:relative;overflow:hidden}
+.top::after{content:"";position:absolute;inset:auto 0 0 0;height:6px;background:repeating-linear-gradient(90deg,var(--red) 0 18px,#fff 18px 36px);opacity:.9}
+.toprow{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;max-width:1240px;margin:0 auto}
+.brand{display:flex;gap:14px;align-items:center}
+.brand svg{flex:none;width:52px;height:52px}
+.brand h1{font-size:clamp(26px,4vw,40px);font-weight:800}
+.brand p{margin:2px 0 0;color:#cfe3d9;font-size:14px}
+.who{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px}
+.who .lbl{color:#cfe3d9}
+.chip{border:1.5px solid rgba(255,255,255,.35);background:transparent;color:#fff;border-radius:999px;padding:8px 14px;min-height:40px;cursor:pointer;font-weight:700}
+.chip[aria-pressed=true]{background:#fff;color:var(--fir);border-color:#fff}
+.chip.ghost{border-style:dashed}
+.tabs{display:flex;gap:4px;max-width:1240px;margin:18px auto 0;overflow-x:auto;padding-bottom:6px}
+.tab{flex:none;border:0;background:transparent;color:#cfe3d9;padding:12px 16px 14px;border-radius:12px 12px 0 0;font-weight:800;cursor:pointer;min-height:44px}
+.tab[aria-current=page]{background:var(--bg);color:var(--ink)}
+main{max-width:1240px;margin:0 auto;padding:22px max(5vw,16px) 64px}
+.note{background:var(--soft);border-radius:14px;padding:12px 16px;color:var(--mute);font-size:14px;margin:0 0 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.btn{border:0;border-radius:12px;padding:10px 16px;min-height:44px;font-weight:800;cursor:pointer;background:var(--fir);color:#fff}
+.btn.red{background:var(--red)}
+.btn.line{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.small{min-height:36px;padding:6px 12px;font-size:14px}
+.btn:focus-visible,.chip:focus-visible,.tab:focus-visible,.icon:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.icon{border:1.5px solid var(--line);background:var(--card);border-radius:10px;width:40px;height:40px;cursor:pointer;display:inline-grid;place-items:center;font-weight:800}
+.icon:disabled{opacity:.35;cursor:default}
+.budget{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;align-items:center;background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:14px 18px;margin-bottom:22px}
+.budget b{font-family:"Baloo 2",sans-serif;font-size:22px}
+.meter{grid-column:1/-1;height:10px;border-radius:99px;background:var(--soft);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--gold);border-radius:99px}
+.meter.over i{background:var(--red)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.fchip{border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:7px 14px;min-height:40px;cursor:pointer;font-weight:700}
+.fchip[aria-pressed=true]{background:var(--fir);border-color:var(--fir);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:20px;align-items:start}
+.person{background:var(--card);border:1.5px solid var(--line);border-radius:18px;overflow:hidden}
+.person>header{padding:14px 18px;display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;border-bottom:1.5px dashed var(--line)}
+.person h3{font-size:24px}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:13px;background:var(--soft);color:var(--mute);border-radius:99px;padding:2px 10px;font-weight:700}
+.gift{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.gift:last-child{border-bottom:0}
+.prio{width:34px;height:34px;border-radius:10px;background:var(--red);color:#fff;display:grid;place-items:center;font-family:"Baloo 2",sans-serif;font-weight:800;font-size:18px;grid-row:span 2}
+.gift h4{font-size:19px;font-weight:600}
+.det{margin:2px 0 0;color:var(--mute);font-size:15px;white-space:pre-line;overflow-wrap:anywhere}
+.gfoot{grid-column:2;display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.fund{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--mute)}
+.fund .meter{flex:1;height:8px}
+.fund span{white-space:nowrap}
+.full .meter i{background:var(--ok)}
+.contribs{list-style:none;margin:0;padding:0;display:flex;gap:6px;flex-wrap:wrap}
+.contribs li{font-size:13px;background:var(--soft);border-radius:8px;padding:3px 9px;overflow-wrap:anywhere}
+.contribs li.buy{background:var(--fir);color:#fff}
+.gactions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.price{white-space:nowrap;font-weight:800}
+.empty{padding:22px 18px;color:var(--mute);font-size:15px}
+.section-title{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 16px}
+.section-title h2{font-size:clamp(26px,3.4vw,34px)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:20px;align-items:start}
+.panel{background:var(--card);border:1.5px solid var(--line);border-radius:18px;padding:16px 18px}
+.panel h3{font-size:22px;margin-bottom:10px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .sub{color:var(--mute);font-size:14px}
+.toggles{display:flex;gap:8px;flex-wrap:wrap}
+.toggles .fchip[aria-pressed=true]::before{content:"✓ "}
+.login{max-width:520px;margin:0 auto}
+.login h2{font-size:clamp(30px,4vw,44px);margin-bottom:8px}
+.names{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 26px}
+.names .btn{font-size:17px}
+label{display:block;font-weight:800;margin:14px 0 6px;font-size:15px}
+.hint{font-weight:400;color:var(--mute);font-size:14px}
+input[type=text],input[type=url],textarea{width:100%;border:1.5px solid var(--line);background:var(--card);border-radius:12px;padding:11px 13px;font-size:16px;min-height:46px}
+textarea{min-height:90px;resize:vertical}
+.check{display:flex;gap:10px;align-items:center;font-weight:600;margin:14px 0 0}
+.check input{width:22px;height:22px;accent-color:var(--fir)}
+.modal{position:fixed;inset:0;background:rgba(5,15,11,.55);display:grid;place-items:center;padding:16px;z-index:10}
+.modal[hidden]{display:none}
+.sheet{background:var(--bg);border-radius:20px;width:min(520px,100%);max-height:calc(100dvh - 32px);overflow:auto;padding:20px 22px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.sheet h3{font-size:26px}
+.sheet .acts{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:22px}
+.sheet .acts .left{margin-right:auto}
+.copybox{display:flex;gap:8px;margin-top:10px}
+.copybox input{flex:1}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--fir);color:#fff;padding:10px 18px;border-radius:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90vw}
+.toast.on{opacity:1}
+.loading{padding:60px 0;text-align:center;color:var(--mute)}
+@media(max-width:600px){.top{padding-top:14px}.brand svg{width:42px;height:42px}.gift{padding:12px 14px}.person>header{padding:12px 14px}.budget{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:no-preference){.gift,.panel{animation:pop .25s ease-out both}@keyframes pop{from{opacity:0;transform:translateY(4px)}}}
+</style>
+</head>
+<body>
+<div id="root"><div class="loading">Chargement…</div></div>
+<div class="modal" id="modal" hidden><form class="sheet" id="sheet" novalidate></form></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script type="module">
+{
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const eur = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',minimumFractionDigits:(n||0)%1?2:0,maximumFractionDigits:2}).format(n||0);
+const num = s => { const v = parseFloat(String(s ?? '').replace(',', '.').replace(/[^\d.]/g, '')); return isFinite(v) && v > 0 ? Math.round(v*100)/100 : 0; };
+const rid = (n=20) => { const a='abcdefghijkmnpqrstuvwxyz23456789'; return [...crypto.getRandomValues(new Uint8Array(n))].map(x => a[x % a.length]).join(''); };
+const ls = { get(k){ try{ return localStorage.getItem(k) }catch(e){ return null } }, set(k,v){ try{ localStorage.setItem(k,v) }catch(e){} } };
+const COLLS = ['meta','people','families','gifts','contributions'];
+const FB = 'https://www.gstatic.com/firebasejs/10.12.2/';
+
+/* ---------- Stockage : démo locale ---------- */
+function seed(d){
+  const t = Date.now(), fm = 'f1', fd = 'f2';
+  d.meta.info = {title:'Noël 2026'};
+  d.families[fm] = {name:'Famille Martin', createdAt:t};
+  d.families[fd] = {name:'Famille Durand', createdAt:t+1};
+  const P = (id,name,families,x={}) => d.people[id] = {name,families,budget:0,godchildren:[],managedBy:null,createdAt:t,...x};
+  P('p1','Noël',[fm],{budget:150});
+  P('p2','Michelle (Mamie)',[fm,fd],{managedBy:'p1',budget:200});
+  P('p3','Loric',[fm],{godchildren:['p5'],budget:120});
+  P('p4','Camille',[fd],{budget:100});
+  P('p5','Hugo',[fd]);
+  const G = (id,owner,title,details,price,priority) => d.gifts[id] = {owner,title,details,price,priority,link:'',createdAt:t+priority};
+  G('g1','p3','Veste de ski','Plutôt une couleur sombre, taille M.',180,1);
+  G('g2','p3','Bonnet en laine','',25,2);
+  G('g3','p1','La suite de ma série de BD','',18,1);
+  G('g4','p1','Gants de jardinage','Taille 9',20,2);
+  G('g5','p2','Plaid tout doux','',45,1);
+  G('g6','p2','Album photo des petits-enfants','',35,2);
+  G('g7','p4','Casque audio sans fil','',90,1);
+  G('g8','p5','Boîte de construction','',40,1);
+  d.contributions.c1 = {gift:'g1',person:'p1',amount:40,buyer:false,note:'',createdAt:t};
+  d.contributions.c2 = {gift:'g1',person:'p2',amount:60,buyer:true,note:'Je commande en ligne',createdAt:t};
+  d.contributions.c3 = {gift:'g7',person:'p2',amount:30,buyer:false,note:'',createdAt:t};
+}
+function demoStore(eventId){
+  const key = 'noel-demo-' + eventId;
+  const blank = () => { const d = Object.fromEntries(COLLS.map(c => [c,{}])); seed(d); return d; };
+  let data; try { data = JSON.parse(ls.get(key) || 'null'); } catch(e) { data = null; }
+  if (!data) data = blank();
+  const subs = [];
+  const snapshot = () => Object.fromEntries(COLLS.map(c => [c, Object.entries(data[c] || {}).map(([id,v]) => ({id,...v}))]));
+  const notify = () => { const s = snapshot(); subs.forEach(f => f(s)); };
+  const save = () => { ls.set(key, JSON.stringify(data)); notify(); };
+  window.addEventListener('storage', e => { if (e.key === key && e.newValue) { try { data = JSON.parse(e.newValue); notify(); } catch(err){} } });
+  return {
+    mode:'demo',
+    subscribe(f){ subs.push(f); setTimeout(() => f(snapshot()), 0); },
+    async add(c,v){ const id = rid(12); data[c][id] = v; save(); return id; },
+    async set(c,id,v){ data[c][id] = {...(data[c][id] || {}), ...v}; save(); },
+    async update(c,id,v){ if (data[c][id]) { data[c][id] = {...data[c][id], ...v}; save(); } },
+    async remove(c,id){ delete data[c][id]; save(); },
+    async reset(){ data = blank(); save(); }
+  };
+}
+
+/* ---------- Stockage : Firebase Firestore ---------- */
+async function firebaseStore(cfg, eventId){
+  const {initializeApp} = await import(FB + 'firebase-app.js');
+  const fs = await import(FB + 'firebase-firestore.js');
+  const db = fs.getFirestore(initializeApp(cfg));
+  const col = c => fs.collection(db, 'events', eventId, c);
+  const ref = (c,id) => fs.doc(db, 'events', eventId, c, id);
+  return {
+    mode:'live',
+    subscribe(f, onErr){
+      const st = {}; const got = new Set();
+      COLLS.forEach(c => fs.onSnapshot(col(c), snap => {
+        st[c] = snap.docs.map(d => ({id:d.id, ...d.data()})); got.add(c);
+        if (got.size === COLLS.length) f({...st});
+      }, err => onErr && onErr(err)));
+    },
+    async add(c,v){ return (await fs.addDoc(col(c), v)).id; },
+    async set(c,id,v){ await fs.setDoc(ref(c,id), v, {merge:true}); },
+    async update(c,id,v){ await fs.updateDoc(ref(c,id), v); },
+    async remove(c,id){ await fs.deleteDoc(ref(c,id)); }
+  };
+}
+
+/* ---------- État ---------- */
+let store = null, eventId = '';
+let S = {meta:[],people:[],families:[],gifts:[],contributions:[]};
+const ui = {tab:'listes', fam:'all', acting:null};
+let pending = false;
+
+const byId = (c,id) => S[c].find(x => x.id === id);
+const meId = () => ls.get('noel-me-' + eventId);
+const me = () => byId('people', meId());
+const acting = () => { const m = me(); if (!m) return null; const a = byId('people', ui.acting); return a && (a.id === m.id || a.managedBy === m.id) ? a : m; };
+const managed = m => S.people.filter(p => p.managedBy === m.id).sort(cmpName);
+const cmpName = (a,b) => a.name.localeCompare(b.name,'fr');
+const famsOf = p => (p.families || []).filter(id => byId('families', id));
+const giftsOf = pid => S.gifts.filter(g => g.owner === pid).sort((a,b) => (a.priority||0)-(b.priority||0) || (a.createdAt||0)-(b.createdAt||0));
+const contribsOf = gid => S.contributions.filter(c => c.gift === gid);
+const sum = arr => arr.reduce((s,c) => s + (c.amount || 0), 0);
+const nameOf = id => byId('people', id)?.name || 'Quelqu’un';
+const title = () => byId('meta','info')?.title || 'Noël en famille';
+
+function visibleOwners(A){
+  const mine = new Set(famsOf(A));
+  const anyFam = S.families.length > 0;
+  return S.people.filter(p => p.id !== A.id && (
+    !anyFam || mine.size === 0 || famsOf(p).length === 0 ||
+    famsOf(p).some(f => mine.has(f)) || (A.godchildren || []).includes(p.id)
+  )).sort(cmpName);
+}
+
+/* ---------- Rendu ---------- */
+const giftSvg = `<svg viewBox="0 0 52 52" aria-hidden="true"><rect x="6" y="20" width="40" height="28" rx="5" fill="#d7263d"/><rect x="3" y="13" width="46" height="11" rx="4" fill="#e8394f"/><rect x="22" y="13" width="8" height="35" fill="#e9b44c"/><path d="M26 13c-4-9-15-10-14-3 1 5 10 4 14 3zm0 0c4-9 15-10 14-3-1 5-10 4-14 3z" fill="none" stroke="#e9b44c" stroke-width="3.5"/><rect x="6" y="40" width="40" height="8" rx="4" fill="#000" opacity=".12"/></svg>`;
+
+function render(){
+  const ae = document.activeElement;
+  if (ae && $('#root').contains(ae) && /INPUT|TEXTAREA/.test(ae.tagName)) { pending = true; return; }
+  pending = false;
+  const m = me();
+  if (!m) return renderLogin();
+  const A = acting(); ui.acting = A.id;
+  const team = [m, ...managed(m)];
+  const tabs = [['listes','Les listes'],['maliste', A.id === m.id ? 'Ma liste' : 'Sa liste'],['parts','Mes parts'],['familles','Familles']];
+  $('#root').innerHTML = `
+  <header class="top"><div class="toprow">
+    <div class="brand">${giftSvg}<div><h1>${esc(title())}</h1><p>Les listes de cadeaux de la famille</p></div></div>
+    <div class="who"><span class="lbl">J’agis pour</span>
+      ${team.map(p => `<button class="chip" data-act="act" data-id="${esc(p.id)}" aria-pressed="${p.id===A.id}">${esc(p.name)}</button>`).join('')}
+      <button class="chip ghost" data-act="represent" title="Gérer la liste de quelqu’un d’autre">+ Représenter</button>
+      <button class="chip ghost" data-act="share">Inviter</button>
+      <button class="chip ghost" data-act="logout" title="Changer d’utilisateur">Changer</button>
+    </div></div>
+    <nav class="tabs">${tabs.map(([k,l]) => `<button class="tab" data-act="tab" data-id="${k}" ${ui.tab===k?'aria-current="page"':''}>${esc(l)}</button>`).join('')}</nav>
+  </header>
+  <main>${store.mode === 'demo' ? `<p class="note"><span>Mode démo : les données restent dans ce navigateur. Les prénoms et cadeaux sont des exemples.</span><button class="btn line small" data-act="reset">Réinitialiser la démo</button></p>` : ''}
+  ${({listes:viewLists, maliste:viewMine, parts:viewParts, familles:viewFamilies}[ui.tab] || viewLists)(A, m)}</main>`;
+}
+
+function budgetBox(A){
+  const spent = sum(S.contributions.filter(c => c.person === A.id));
+  const b = A.budget || 0, over = b && spent > b;
+  return `<div class="budget"><div><div class="hint">Budget de ${esc(A.name)}</div>
+    <b>${eur(spent)}</b> engagés ${b ? `sur ${eur(b)} · <span style="color:${over?'var(--red-ink)':'var(--ok)'}">${over ? 'dépassé de ' + eur(spent-b) : 'reste ' + eur(b-spent)}</span>` : '· pas de budget fixé'}</div>
+    <button class="btn line small" data-act="budget">${b ? 'Modifier le budget' : 'Fixer un budget max'}</button>
+    ${b ? `<div class="meter ${over?'over':''}"><i style="width:${Math.min(100, spent/b*100).toFixed(1)}%"></i></div>` : ''}</div>`;
+}
+
+function viewLists(A){
+  let owners = visibleOwners(A);
+  const famIds = [...new Set(owners.flatMap(famsOf))].filter(Boolean);
+  const kids = (A.godchildren || []).filter(id => byId('people', id));
+  if (ui.fam === 'kids') owners = owners.filter(p => kids.includes(p.id));
+  else if (ui.fam !== 'all') owners = owners.filter(p => famsOf(p).includes(ui.fam));
+  const chips = famIds.length > 1 || kids.length ? `<div class="filters">
+    <button class="fchip" data-act="fam" data-id="all" aria-pressed="${ui.fam==='all'}">Tout le monde</button>
+    ${famIds.map(id => `<button class="fchip" data-act="fam" data-id="${esc(id)}" aria-pressed="${ui.fam===id}">${esc(byId('families',id).name)}</button>`).join('')}
+    ${kids.length ? `<button class="fchip" data-act="fam" data-id="kids" aria-pressed="${ui.fam==='kids'}">Filleul·es</button>` : ''}</div>` : '';
+  return budgetBox(A) + chips + (owners.length ? `<div class="grid">${owners.map(p => personCard(p, A)).join('')}</div>`
+    : `<p class="empty">Personne d’autre pour l’instant. Envoie le lien avec le bouton « Inviter ».</p>`);
+}
+
+function personCard(p, A){
+  const gs = giftsOf(p.id);
+  const rep = p.managedBy ? ` <span class="hint">(représenté·e par ${esc(nameOf(p.managedBy))})</span>` : '';
+  return `<section class="person"><header><h3>${esc(p.name)}${rep}</h3>
+    <div class="tags">${famsOf(p).map(f => `<span class="tag">${esc(byId('families',f).name)}</span>`).join('')}</div></header>
+    ${gs.length ? gs.map((g,i) => giftRow(g, i, A)).join('') : `<p class="empty">Pas encore d’idées de cadeaux.</p>`}</section>`;
+}
+
+function giftRow(g, i, A){
+  const cs = contribsOf(g.id), tot = sum(cs), mine = cs.find(c => c.person === A.id);
+  const pct = g.price ? Math.min(100, tot/g.price*100) : 0, full = g.price && tot >= g.price;
+  const link = /^https:\/\//i.test(g.link || '') ? `<a href="${esc(g.link)}" target="_blank" rel="noopener">Voir le lien</a>` : '';
+  return `<article class="gift"><div class="prio" title="Priorité ${i+1}">${i+1}</div>
+    <div><h4>${esc(g.title)}</h4>${g.details ? `<p class="det">${esc(g.details)}</p>` : ''}</div>
+    <div class="gfoot">
+      ${g.price || tot ? `<div class="fund ${full?'full':''}">${g.price ? `<div class="meter"><i style="width:${pct.toFixed(1)}%"></i></div>` : ''}<span>${tot ? eur(tot) + ' réunis' + (g.price ? ' sur ~' + eur(g.price) : '') : '~' + eur(g.price) + ' · personne encore'}</span></div>` : ''}
+      ${cs.length ? `<ul class="contribs">${cs.map(c => `<li class="${c.buyer?'buy':''}">${esc(nameOf(c.person))}${c.amount ? ' · ' + eur(c.amount) : ''}${c.buyer ? ' · achète' : ''}${c.note ? ' · ' + esc(c.note) : ''}</li>`).join('')}</ul>` : ''}
+      <div class="gactions">${link}
+        <button class="btn ${mine?'line':''} small" data-act="contrib" data-id="${esc(g.id)}">${mine ? 'Ma part : ' + (mine.amount ? eur(mine.amount) : 'à définir') : 'Participer'}</button></div>
+    </div></article>`;
+}
+
+function viewMine(A){
+  const gs = giftsOf(A.id);
+  return `<div class="section-title"><h2>${A.id === me().id ? 'Ma liste' : 'Liste de ' + esc(A.name)}</h2>
+    <button class="btn red" data-act="addgift">Ajouter un cadeau</button></div>
+    <p class="note">Classe tes idées par priorité avec les flèches. Pour garder la surprise, tu ne vois pas qui participe à tes cadeaux.</p>
+    ${gs.length ? `<section class="person">${gs.map((g,i) => `<article class="gift"><div class="prio">${i+1}</div>
+      <div><h4>${esc(g.title)}</h4>${g.details ? `<p class="det">${esc(g.details)}</p>` : ''}</div>
+      <div class="gfoot"><div class="gactions">${g.price ? `<span class="price">~${eur(g.price)}</span>` : ''}
+        ${/^https:\/\//i.test(g.link||'') ? `<a href="${esc(g.link)}" target="_blank" rel="noopener">Lien</a>` : ''}
+        <button class="icon" data-act="up" data-id="${esc(g.id)}" ${i===0?'disabled':''} aria-label="Monter">↑</button>
+        <button class="icon" data-act="down" data-id="${esc(g.id)}" ${i===gs.length-1?'disabled':''} aria-label="Descendre">↓</button>
+        <button class="btn line small" data-act="editgift" data-id="${esc(g.id)}">Modifier</button>
+        <button class="btn line small" data-act="delgift" data-id="${esc(g.id)}">Supprimer</button></div></div></article>`).join('')}</section>`
+      : `<p class="empty">Ta liste est vide. Ajoute une première idée : un titre suffit, les précisions (taille, couleur, numéro de tome…) aident beaucoup.</p>`}`;
+}
+
+function viewParts(A){
+  const cs = S.contributions.filter(c => c.person === A.id);
+  return `<div class="section-title"><h2>Participations de ${esc(A.name)}</h2></div>${budgetBox(A)}
+    <div class="panel">${cs.length ? cs.map(c => { const g = byId('gifts', c.gift);
+      return `<div class="row"><div><b>${g ? esc(g.title) : 'Cadeau retiré de la liste'}</b>
+        <div class="sub">${g ? 'pour ' + esc(nameOf(g.owner)) : 'Pense à retirer ta participation'}${c.buyer ? ' · c’est toi qui achètes' : ''}${c.note ? ' · ' + esc(c.note) : ''}</div></div>
+        <div class="gactions"><span class="price">${c.amount ? eur(c.amount) : 'à définir'}</span>
+        ${g ? `<button class="btn line small" data-act="contrib" data-id="${esc(g.id)}">Modifier</button>` : `<button class="btn line small" data-act="delcontrib" data-id="${esc(c.id)}">Retirer</button>`}</div></div>`; }).join('')
+      : `<p class="empty">Aucune participation pour l’instant. Va dans « Les listes » et clique sur « Participer ».</p>`}</div>`;
+}
+
+function viewFamilies(A, m){
+  const fams = [...S.families].sort((a,b) => (a.createdAt||0)-(b.createdAt||0));
+  const others = S.people.filter(p => p.id !== A.id).sort(cmpName);
+  return `<div class="section-title"><h2>Familles</h2><button class="btn red" data-act="addfam">Nouvelle famille</button></div>
+  <p class="note">Chacun ne voit que les listes des familles dont il fait partie (et celles de ses filleul·es). Un grand-parent peut être dans plusieurs familles.</p>
+  <div class="cols">
+    <div class="panel"><h3>${esc(A.name)} fait partie de…</h3>
+      ${fams.length ? `<div class="toggles">${fams.map(f => `<button class="fchip" data-act="togfam" data-id="${esc(f.id)}" aria-pressed="${famsOf(A).includes(f.id)}">${esc(f.name)}</button>`).join('')}</div>`
+        : `<p class="empty" style="padding:0">Aucune famille créée : tout le monde voit toutes les listes.</p>`}
+      <h3 style="margin-top:22px">Filleul·es de ${esc(A.name)}</h3>
+      <p class="hint" style="margin:0 0 10px">Leurs listes restent visibles même hors de tes familles.</p>
+      ${others.length ? `<div class="toggles">${others.map(p => `<button class="fchip" data-act="togkid" data-id="${esc(p.id)}" aria-pressed="${(A.godchildren||[]).includes(p.id)}">${esc(p.name)}</button>`).join('')}</div>` : '<p class="hint">Personne d’autre pour l’instant.</p>'}
+    </div>
+    <div class="panel"><h3>Toutes les familles</h3>
+      ${fams.length ? fams.map(f => { const mem = S.people.filter(p => famsOf(p).includes(f.id)).sort(cmpName);
+        return `<div class="row"><div><b>${esc(f.name)}</b><div class="sub">${mem.length ? mem.map(p => esc(p.name)).join(', ') : 'Personne pour l’instant'}</div></div>
+          <div class="gactions"><button class="btn line small" data-act="renfam" data-id="${esc(f.id)}">Renommer</button><button class="btn line small" data-act="delfam" data-id="${esc(f.id)}">Supprimer</button></div></div>`; }).join('')
+        : '<p class="hint">Crée par exemple « Famille Martin » et « Famille Durand ».</p>'}
+    </div>
+    <div class="panel"><h3>Personnes que ${esc(m.name)} représente</h3>
+      ${managed(m).length ? managed(m).map(p => `<div class="row"><div><b>${esc(p.name)}</b><div class="sub">${famsOf(p).map(f => esc(byId('families',f).name)).join(', ') || 'Sans famille'}</div></div>
+        <div class="gactions"><button class="btn line small" data-act="act" data-id="${esc(p.id)}">Agir pour ${esc(p.name)}</button><button class="btn line small" data-act="delperson" data-id="${esc(p.id)}">Supprimer</button></div></div>`).join('')
+        : '<p class="hint">Par exemple une grand-mère sans téléphone : tu gères sa liste et ses participations.</p>'}
+      <button class="btn line" data-act="represent" style="margin-top:12px">+ Représenter quelqu’un</button>
+    </div>
+  </div>`;
+}
+
+function renderLogin(){
+  const ps = S.people.filter(p => !p.managedBy).sort(cmpName);
+  const fams = [...S.families].sort((a,b) => (a.createdAt||0)-(b.createdAt||0));
+  $('#root').innerHTML = `<header class="top"><div class="toprow"><div class="brand">${giftSvg}<div><h1>${esc(title())}</h1><p>Les listes de cadeaux de la famille</p></div></div></div><div style="height:22px"></div></header>
+  <main><div class="login">
+    ${store.mode === 'demo' ? `<p class="note">Mode démo : choisis un prénom pour essayer.</p>` : ''}
+    <h2>Qui es-tu ?</h2>
+    ${ps.length ? `<div class="names">${ps.map(p => `<button class="btn" data-act="pick" data-id="${esc(p.id)}">${esc(p.name)}</button>`).join('')}</div>` : '<p class="hint">Tu es le premier ou la première, bienvenue !</p>'}
+    <form id="newme"><h3 style="font-size:22px;margin-top:10px">${ps.length ? 'Pas dans la liste ?' : 'Présente-toi'}</h3>
+      <label for="nm">Ton prénom</label><input type="text" id="nm" name="name" autocomplete="given-name" maxlength="40" required>
+      ${fams.length ? `<label>Ta ou tes familles <span class="hint">(plusieurs possibles)</span></label>${fams.map(f => `<label class="check"><input type="checkbox" name="fam" value="${esc(f.id)}"> ${esc(f.name)}</label>`).join('')}` : ''}
+      <div style="margin-top:18px"><button class="btn red" type="submit">C’est moi, j’entre</button></div></form>
+  </div></main>`;
+}
+
+/* ---------- Fenêtres ---------- */
+let modalSubmit = null, modalExtra = {};
+function openModal({title, body, submit='Enregistrer', onSubmit, extra}){
+  modalSubmit = onSubmit; modalExtra = {};
+  const ex = extra ? `<button type="button" class="btn line left" data-mact="x">${esc(extra.label)}</button>` : '';
+  if (extra) modalExtra.x = extra.run;
+  $('#sheet').innerHTML = `<h3>${esc(title)}</h3>${body}<div class="acts">${ex}<button type="button" class="btn line" data-mact="close">Annuler</button>${submit ? `<button class="btn red" type="submit">${esc(submit)}</button>` : ''}</div>`;
+  $('#modal').hidden = false;
+  setTimeout(() => $('#sheet').querySelector('input[type=text],input:not([type]),textarea')?.focus(), 30);
+}
+const closeModal = () => { $('#modal').hidden = true; modalSubmit = null; if (pending) render(); };
+function confirmModal(title, text, label, run){ openModal({title, body:`<p>${esc(text)}</p>`, submit:label, onSubmit:run}); }
+function toast(t){ const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2200); }
+const safe = fn => async (...a) => { try { return await fn(...a); } catch(e) { console.error(e); toast('Oups, l’enregistrement a échoué. Réessaie.'); return false; } };
+
+$('#sheet').addEventListener('submit', async e => {
+  e.preventDefault(); if (!modalSubmit) return;
+  const r = await safe(modalSubmit)(new FormData(e.target));
+  if (r !== false) closeModal();
+});
+$('#sheet').addEventListener('click', async e => {
+  const b = e.target.closest('[data-mact]'); if (!b) return;
+  if (b.dataset.mact === 'close') return closeModal();
+  if (b.dataset.mact === 'copy') { const inp = $('#sharelink'); inp.select(); try { await navigator.clipboard.writeText(inp.value); toast('Lien copié'); } catch(err) { toast('Sélectionne le lien et copie-le'); } return; }
+  const fn = modalExtra[b.dataset.mact]; if (fn) { const r = await safe(fn)(); if (r !== false) closeModal(); }
+});
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); });
+document.addEventListener('focusout', () => setTimeout(() => { if (pending && $('#modal').hidden) render(); }, 0));
+
+const giftForm = g => `<label for="gt">Le cadeau</label><input type="text" id="gt" name="title" maxlength="80" value="${esc(g?.title)}" required>
+  <label for="gd">Précisions <span class="hint">(taille, couleur, marque, numéro de tome…)</span></label><textarea id="gd" name="details" maxlength="500">${esc(g?.details)}</textarea>
+  <label for="gp">Prix estimé en € <span class="hint">(facultatif)</span></label><input type="text" id="gp" name="price" inputmode="decimal" value="${g?.price || ''}">
+  <label for="gl">Lien vers un exemple <span class="hint">(facultatif, https://…)</span></label><input type="url" id="gl" name="link" value="${esc(g?.link)}">`;
+const giftData = f => ({title:String(f.get('title')||'').trim(), details:String(f.get('details')||'').trim(), price:num(f.get('price')), link:String(f.get('link')||'').trim()});
+
+/* ---------- Actions ---------- */
+const actions = {
+  tab: id => { ui.tab = id; render(); scrollTo(0,0); },
+  act: id => { ui.acting = id; ui.fam = 'all'; render(); toast('Tu agis maintenant pour ' + nameOf(id)); },
+  fam: id => { ui.fam = id; render(); },
+  pick: id => { ls.set('noel-me-' + eventId, id); ui.acting = id; ui.tab = 'listes'; render(); },
+  logout: () => { ls.set('noel-me-' + eventId, ''); ui.acting = null; render(); },
+  reset: () => confirmModal('Réinitialiser la démo ?', 'Les exemples de départ reviennent, tes essais sont effacés.', 'Réinitialiser', async () => { await store.reset(); }),
+  share: () => openModal({title:'Inviter la famille', submit:'', body:`<p>Envoie ce lien à chacun. Il suffit de cliquer dessus puis de choisir son prénom.</p>
+      <div class="copybox"><input type="text" id="sharelink" readonly value="${esc(location.href)}"><button type="button" class="btn" data-mact="copy">Copier</button></div>
+      <p class="hint">Garde ce lien dans la famille : toute personne qui l’a peut voir et modifier les listes.</p>`}),
+  budget: () => { const A = acting(); openModal({title:'Budget de ' + A.name, body:`<label for="bd">Budget maximum en €</label><input type="text" id="bd" name="b" inputmode="decimal" value="${A.budget || ''}"><p class="hint">Laisse vide pour ne pas fixer de budget. Il sert seulement à te repérer.</p>`,
+      onSubmit: async f => { await store.update('people', A.id, {budget:num(f.get('b'))}); toast('Budget enregistré'); }}); },
+  addgift: () => { const A = acting(); openModal({title:'Nouvelle idée de cadeau', body:giftForm(), submit:'Ajouter', onSubmit: async f => {
+      const d = giftData(f); if (!d.title) { toast('Donne un nom au cadeau'); return false; }
+      const max = Math.max(0, ...giftsOf(A.id).map(g => g.priority || 0));
+      await store.add('gifts', {...d, owner:A.id, priority:max+1, createdAt:Date.now()}); toast('Cadeau ajouté'); }}); },
+  editgift: id => { const g = byId('gifts', id); openModal({title:'Modifier le cadeau', body:giftForm(g), onSubmit: async f => {
+      const d = giftData(f); if (!d.title) { toast('Donne un nom au cadeau'); return false; } await store.update('gifts', id, d); }}); },
+  delgift: id => confirmModal('Supprimer ce cadeau ?', 'Il disparaîtra de ta liste. Si quelqu’un y participait déjà, il le verra dans ses participations.', 'Supprimer', async () => { await store.remove('gifts', id); toast('Cadeau supprimé'); }),
+  up: id => move(id, -1), down: id => move(id, 1),
+  contrib: id => { const A = acting(), g = byId('gifts', id); if (!g) return;
+    if (g.owner === A.id) return toast('On ne participe pas à son propre cadeau !');
+    const cur = contribsOf(id).find(c => c.person === A.id), tot = sum(contribsOf(id));
+    openModal({title:g.title, submit: cur ? 'Enregistrer' : 'Je participe',
+      body:`<p class="hint">Pour ${esc(nameOf(g.owner))}${g.price ? ` · prix estimé ~${eur(g.price)} · déjà ${eur(tot)} réunis` : ''}. Tu participes en tant que <b>${esc(A.name)}</b>.</p>
+        <label for="am">Montant en € <span class="hint">(laisse vide si pas encore décidé)</span></label><input type="text" id="am" name="amount" inputmode="decimal" value="${cur?.amount || ''}">
+        <label class="check"><input type="checkbox" name="buyer" ${cur?.buyer ? 'checked' : ''}> C’est moi qui achète le cadeau</label>
+        <label for="nt">Un mot pour les autres participants <span class="hint">(facultatif)</span></label><input type="text" id="nt" name="note" maxlength="120" value="${esc(cur?.note)}">`,
+      extra: cur ? {label:'Retirer ma participation', run: async () => { await store.remove('contributions', cur.id); toast('Participation retirée'); }} : null,
+      onSubmit: async f => { const d = {amount:num(f.get('amount')), buyer:!!f.get('buyer'), note:String(f.get('note')||'').trim()};
+        if (cur) await store.update('contributions', cur.id, d); else await store.add('contributions', {...d, gift:id, person:A.id, createdAt:Date.now()});
+        toast('Participation enregistrée'); }}); },
+  delcontrib: id => store.remove('contributions', id).then(() => toast('Participation retirée')),
+  addfam: () => openModal({title:'Nouvelle famille', body:`<label for="fn">Nom</label><input type="text" id="fn" name="n" maxlength="40" placeholder="Famille Martin" required>`, submit:'Créer',
+    onSubmit: async f => { const n = String(f.get('n')||'').trim(); if (!n) return false; const fid = await store.add('families', {name:n, createdAt:Date.now()});
+      const A = acting(); await store.update('people', A.id, {families:[...famsOf(A), fid]}); toast('Famille créée'); }}),
+  renfam: id => openModal({title:'Renommer la famille', body:`<label for="fn">Nom</label><input type="text" id="fn" name="n" maxlength="40" value="${esc(byId('families',id).name)}">`,
+    onSubmit: async f => { const n = String(f.get('n')||'').trim(); if (!n) return false; await store.update('families', id, {name:n}); }}),
+  delfam: id => confirmModal('Supprimer « ' + byId('families',id).name + ' » ?', 'Les listes ne sont pas effacées, seulement le regroupement.', 'Supprimer', async () => { await store.remove('families', id); }),
+  togfam: id => { const A = acting(), f = famsOf(A); return store.update('people', A.id, {families: f.includes(id) ? f.filter(x => x !== id) : [...f, id]}); },
+  togkid: id => { const A = acting(), k = A.godchildren || []; return store.update('people', A.id, {godchildren: k.includes(id) ? k.filter(x => x !== id) : [...k, id]}); },
+  represent: () => { const m = me(); openModal({title:'Représenter quelqu’un', submit:'Ajouter',
+      body:`<p class="hint">Tu pourras faire sa liste et participer aux cadeaux en son nom.</p><label for="rn">Son prénom</label><input type="text" id="rn" name="n" maxlength="40" placeholder="Michelle (Mamie)" required>`,
+      onSubmit: async f => { const n = String(f.get('n')||'').trim(); if (!n) return false;
+        const pid = await store.add('people', {name:n, families:famsOf(m), budget:0, godchildren:[], managedBy:m.id, createdAt:Date.now()});
+        ui.acting = pid; ui.tab = 'maliste'; toast('Tu agis maintenant pour ' + n); }}); },
+  delperson: id => confirmModal('Supprimer ' + nameOf(id) + ' ?', 'Sa liste et ses participations seront effacées.', 'Supprimer', async () => {
+      for (const g of giftsOf(id)) await store.remove('gifts', g.id);
+      for (const c of S.contributions.filter(c => c.person === id)) await store.remove('contributions', c.id);
+      await store.remove('people', id); ui.acting = meId(); })
+};
+async function move(id, dir){
+  const A = acting(), gs = giftsOf(A.id), i = gs.findIndex(g => g.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= gs.length) return;
+  const order = gs.map(g => g.id); [order[i], order[j]] = [order[j], order[i]];
+  await Promise.all(order.map((gid, k) => byId('gifts', gid).priority !== k+1 ? store.update('gifts', gid, {priority:k+1}) : null));
+}
+
+$('#root').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b || !store) return;
+  const fn = actions[b.dataset.act]; if (fn) safe(fn)(b.dataset.id);
+});
+$('#root').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (e.target.id === 'newme') {
+    const f = new FormData(e.target), n = String(f.get('name')||'').trim(); if (!n) return toast('Écris ton prénom');
+    const ex = S.people.find(p => !p.managedBy && p.name.trim().toLowerCase() === n.toLowerCase());
+    const id = ex ? ex.id : await safe(() => store.add('people', {name:n, families:f.getAll('fam'), budget:0, godchildren:[], managedBy:null, createdAt:Date.now()}))();
+    if (!id) return;
+    document.activeElement?.blur(); actions.pick(id);
+  }
+  if (e.target.id === 'create') {
+    const n = String(new FormData(e.target).get('t')||'').trim() || 'Noël en famille';
+    eventId = rid(20); history.replaceState(null, '', '#' + eventId); await start(n);
+  }
+});
+
+/* ---------- Démarrage ---------- */
+async function start(newTitle){
+  $('#root').innerHTML = '<div class="loading">Chargement…</div>';
+  store = await firebaseStore(window.FIREBASE_CONFIG, eventId);
+  if (newTitle) await safe(() => store.set('meta','info',{title:newTitle, createdAt:Date.now()}))();
+  let got = false;
+  const timer = setTimeout(() => { if (!got) $('#root').innerHTML = '<div class="loading">Impossible de joindre la base. Vérifie ta connexion puis recharge la page.</div>'; }, 10000);
+  store.subscribe(s => { got = true; clearTimeout(timer); S = s; render(); },
+    err => { clearTimeout(timer); console.error(err); $('#root').innerHTML = '<div class="loading">Accès refusé par la base. Vérifie les règles Firestore (voir le guide).</div>'; });
+}
+function renderCreate(){
+  $('#root').innerHTML = `<header class="top"><div class="toprow"><div class="brand">${giftSvg}<div><h1>Cadeaux de Noël</h1><p>Les listes de cadeaux de la famille</p></div></div></div><div style="height:22px"></div></header>
+  <main><form class="login" id="create"><h2>Créer l’espace de la famille</h2>
+    <p class="hint">Tu obtiendras un lien secret à envoyer à chacun. Si on t’a déjà envoyé un lien, ouvre plutôt celui-là.</p>
+    <label for="t">Nom de l’espace</label><input type="text" id="t" name="t" maxlength="50" value="Noël 2026">
+    <div style="margin-top:18px"><button class="btn red" type="submit">Créer</button></div></form></main>`;
+}
+
+(async () => {
+  const cfg = window.FIREBASE_CONFIG;
+  if (!cfg) { eventId = 'demo'; store = demoStore(eventId); store.subscribe(s => { S = s; render(); }); return; }
+  const h = location.hash.slice(1);
+  if (/^[a-z0-9]{16,40}$/.test(h)) { eventId = h; try { await start(); } catch(e) { console.error(e); $('#root').innerHTML = '<div class="loading">Le site n’a pas pu se connecter à Firebase. Vérifie la configuration.</div>'; } }
+  else renderCreate();
+  window.addEventListener('hashchange', () => location.reload());
+})();
+}
+</script>
+</body>
+</html>
