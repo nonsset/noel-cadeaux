@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Chaque espace famille vit sous events/{id secret}. Seul qui connaît le lien y accède.
+    // Impossible de lister les espaces existants.
+    match /events/{eventId}/{coll}/{docId} {
+      allow read, write: if eventId.size() >= 16
+        && coll in ['meta', 'people', 'families', 'gifts', 'contributions'];
+    }
+  }
+}
