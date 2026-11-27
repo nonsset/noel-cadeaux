@@ -14,8 +14,15 @@
    Tant que c'est null, le site fonctionne en MODE DÉMO : les données
    restent dans ce navigateur et ne sont pas partagées.
    ===================================================================== */
-window.FIREBASE_CONFIG = null;
-/* Exemple :
+window.FIREBASE_CONFIG = {
+  apiKey: "AIzaSyD6ph_frB6D-H3M_FDMpDiNlE_nedxXMiU",
+  authDomain: "noel-cadeaux.firebaseapp.com",
+  projectId: "noel-cadeaux",
+  storageBucket: "noel-cadeaux.firebasestorage.app",
+  messagingSenderId: "608162241443",
+  appId: "1:608162241443:web:f5a4029c1f4d8d5bf15816"
+};
+/* Format attendu :
 window.FIREBASE_CONFIG = {
   apiKey: "AIza...",
   authDomain: "mon-noel.firebaseapp.com",
