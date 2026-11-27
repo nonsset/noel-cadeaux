@@ -110,6 +110,14 @@ main{max-width:1240px;margin:0 auto;padding:22px max(5vw,16px) 64px}
 .by{font-size:13px;color:var(--mute);margin:2px 0 0}
 .addsecret{padding:10px 18px 14px;border-top:1px solid var(--line)}
 .pin{letter-spacing:.4em;font-size:22px;text-align:center}
+.help{background:light-dark(#e8f3ee,#15291f);border:1.5px solid light-dark(#bfdccd,#2a4a3a);border-radius:16px;padding:14px 18px;margin:0 0 20px;display:flex;gap:10px 18px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.help b{font-family:"Baloo 2",sans-serif;font-size:19px}
+.help ul,.helplist{margin:6px 0 0;padding-left:20px}.help li,.helplist li{margin:4px 0}
+.sheet h4{font-size:19px;margin:18px 0 4px}
+.support{background:var(--soft);border-radius:14px;padding:12px 16px;margin-top:18px}
+.support a.btn{display:inline-flex;align-items:center;text-decoration:none;margin-top:8px}
+.ver{color:var(--mute);font-size:13px;margin-top:14px}
+.linkbtn{background:none;border:0;padding:8px 0;color:var(--red-ink);text-decoration:underline;cursor:pointer;font-weight:700;min-height:44px}
 .section-title{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 16px}
 .section-title h2{font-size:clamp(26px,3.4vw,34px)}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:20px;align-items:start}
@@ -159,6 +167,42 @@ const num = s => { const v = parseFloat(String(s ?? '').replace(',', '.').replac
 const rid = (n=20) => { const a='abcdefghijkmnpqrstuvwxyz23456789'; return [...crypto.getRandomValues(new Uint8Array(n))].map(x => a[x % a.length]).join(''); };
 const ls = { get(k){ try{ return localStorage.getItem(k) }catch(e){ return null } }, set(k,v){ try{ localStorage.setItem(k,v) }catch(e){} } };
 const COLLS = ['meta','people','families','gifts','contributions'];
+const APP_VERSION = '1.2';
+const CHANGELOG_URL = 'https://github.com/nonsset/noel-cadeaux/blob/main/CHANGELOG.md';
+const SUPPORT = ['nonsset', 'gmail.com'].join('@');
+const HELP = {
+  login: {t:'Se connecter', p:[
+    'Clique sur ton prénom s’il est déjà dans la liste, puis tape ton code personnel.',
+    'Première fois ? Écris ton prénom, coche ta ou tes familles et choisis un code de 4 à 6 chiffres. Retiens-le : il te sera demandé sur un autre téléphone ou ordinateur.',
+    'Code oublié ? Demande à l’organisateur de le réinitialiser.']},
+  listes: {t:'Les listes', p:[
+    'Tu vois les listes des membres de tes familles et de tes filleul·es. Le chiffre rouge indique l’ordre de préférence : le n°1 est le cadeau le plus souhaité.',
+    '« Participer » : indique combien tu mets (laisse vide si tu ne sais pas encore), coche « c’est moi qui achète » si besoin, et laisse un petit mot aux autres participants.',
+    'La barre montre l’argent déjà réuni par rapport au prix estimé.',
+    '« Proposer une surprise » ajoute un cadeau hors liste : la personne ne le verra jamais, les autres pourront y participer.',
+    'En haut, ton budget : ce que tu as déjà engagé et ce qu’il te reste.']},
+  maliste: {t:'Ma liste', p:[
+    '« Ajouter un cadeau » : un titre suffit. Les précisions (taille, couleur, marque, numéro de tome…) évitent les erreurs.',
+    'Les flèches ↑ ↓ changent l’ordre de préférence : mets en n°1 ce qui te ferait le plus plaisir.',
+    'Surprise garantie : tu ne vois ni qui participe à tes cadeaux, ni combien, ni les surprises qu’on te prépare.']},
+  parts: {t:'Mes parts', p:[
+    'Toutes tes participations, avec le total et ce qu’il reste sur ton budget.',
+    '« Modifier » permet de changer un montant ou de retirer ta participation.',
+    'Si la personne a retiré un cadeau de sa liste, il apparaît ici : pense à retirer ta participation.']},
+  familles: {t:'Familles', p:[
+    'Coche les familles dont tu fais partie. On peut être dans plusieurs familles, c’est pratique pour les grands-parents.',
+    'Filleul·es : coche-les pour voir leur liste même s’ils ne sont pas dans tes familles.',
+    '« Représenter quelqu’un » : tu gères la liste et les participations d’une personne qui n’utilise pas le site (une grand-mère, par exemple). Passe de l’un à l’autre avec les boutons « J’agis pour » en haut.']},
+  orga: {t:'Organisation', p:[
+    '« Fusionner » : une même personne inscrite deux fois ? Tout est regroupé sur un seul prénom.',
+    '« Nouveau code » : efface un code oublié ; la personne en choisira un autre à sa prochaine connexion.',
+    'Tu peux nommer d’autres organisateurs. Être organisateur ne te montre pas les surprises qu’on te prépare.']}
+};
+const HELP_GENERAL = [
+  '« J’agis pour » : choisis pour qui tu fais les actions, toi ou une personne que tu représentes.',
+  '« Inviter » : copie le lien de l’espace pour l’envoyer à la famille. Envoie toujours le lien complet, avec le code après le #.',
+  '« Changer » : te déconnecter de cet appareil.'];
+const helpSeen = new Set();
 const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 const validPin = p => /^\d{4,6}$/.test(p);
 const FB = 'https://www.gstatic.com/firebasejs/10.12.2/';
@@ -292,11 +336,13 @@ function render(){
       ${team.map(p => `<button class="chip" data-act="act" data-id="${esc(p.id)}" aria-pressed="${p.id===A.id}">${esc(p.name)}</button>`).join('')}
       <button class="chip ghost" data-act="represent" title="Gérer la liste de quelqu’un d’autre">+ Représenter</button>
       <button class="chip ghost" data-act="share">Inviter</button>
+      <button class="chip ghost" data-act="help">Aide</button>
       <button class="chip ghost" data-act="logout" title="Changer d’utilisateur">Changer</button>
     </div></div>
     <nav class="tabs">${tabs.map(([k,l]) => `<button class="tab" data-act="tab" data-id="${k}" ${ui.tab===k?'aria-current="page"':''}>${esc(l)}</button>`).join('')}</nav>
   </header>
   <main>${store.mode === 'demo' ? `<p class="note"><span>Mode démo : les données restent dans ce navigateur. Les prénoms et cadeaux sont des exemples.</span><button class="btn line small" data-act="reset">Réinitialiser la démo</button></p>` : ''}
+  ${helpCard(ui.tab === 'orga' && !canManage() ? 'listes' : ui.tab)}
   ${({listes:viewLists, maliste:viewMine, parts:viewParts, familles:viewFamilies, orga: canManage() ? viewOrga : viewLists}[ui.tab] || viewLists)(A, m)}</main>`;
 }
 
@@ -429,6 +475,7 @@ function renderLogin(){
   const fams = [...S.families].sort((a,b) => (a.createdAt||0)-(b.createdAt||0));
   $('#root').innerHTML = `<header class="top"><div class="toprow"><div class="brand">${giftSvg}<div><h1>${esc(title())}</h1><p>Les listes de cadeaux de la famille</p></div></div></div><div style="height:22px"></div></header>
   <main><div class="login">
+    ${helpCard('login')}
     ${store.mode === 'demo' ? `<p class="note">Mode démo : choisis un prénom pour essayer.</p>` : ''}
     <h2>Qui es-tu ?</h2>
     ${ps.length ? `<div class="names">${ps.map(p => `<button class="btn" data-act="pick" data-id="${esc(p.id)}">${esc(p.name)}</button>`).join('')}</div>` : '<p class="hint">Tu es le premier ou la première, bienvenue !</p>'}
@@ -438,16 +485,33 @@ function renderLogin(){
       <label for="np">Choisis un code personnel <span class="hint">(4 à 6 chiffres, pour que personne ne puisse se faire passer pour toi)</span></label>
       <input type="password" id="np" name="pin" inputmode="numeric" autocomplete="new-password" maxlength="6" class="pin">
       <div style="margin-top:18px"><button class="btn red" type="submit">C’est moi, j’entre</button></div></form>
+    <button class="linkbtn" data-act="help" type="button">Besoin d’aide ?</button>
   </div></main>`;
 }
 
 /* ---------- Fenêtres ---------- */
 let modalSubmit = null, modalExtra = {};
-function openModal({title, body, submit='Enregistrer', onSubmit, extra}){
+function helpKey(tab){ return 'noel-help-' + tab; }
+function helpCard(tab){
+  const h = HELP[tab]; if (!h || helpSeen.has(tab) || ls.get(helpKey(tab))) return '';
+  return `<div class="help" role="note"><div><b>Première visite : ${esc(h.t)}</b><ul>${h.p.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>
+    <button class="btn small" data-act="helpok" data-id="${esc(tab)}">J’ai compris</button></div>`;
+}
+function openHelp(tab){
+  const h = HELP[tab] || HELP.listes, who = me();
+  const subject = encodeURIComponent('Cadeaux de Noël : besoin d’aide');
+  const body = encodeURIComponent(`Bonjour,\n\n(Décris ton problème ici)\n\n---\nPage : ${h.t}\nPrénom : ${who ? who.name : 'non connecté'}\nVersion : ${APP_VERSION}`);
+  openModal({title:'Aide · ' + h.t, submit:'', cancel:'Fermer', body:`<ul class="helplist">${h.p.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+    ${tab !== 'login' ? `<h4>Partout sur le site</h4><ul class="helplist">${HELP_GENERAL.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+    <div class="support"><b>Un souci, une question ?</b><br>Écris au support : ${esc(SUPPORT)}<br>
+      <a class="btn" href="mailto:${SUPPORT}?subject=${subject}&body=${body}">Contacter le support</a></div>
+    <p class="ver">Version ${APP_VERSION} · <a href="${CHANGELOG_URL}" target="_blank" rel="noopener">Nouveautés</a></p>`});
+}
+function openModal({title, body, submit='Enregistrer', cancel='Annuler', onSubmit, extra}){
   modalSubmit = onSubmit; modalExtra = {};
   const ex = extra ? `<button type="button" class="btn line left" data-mact="x">${esc(extra.label)}</button>` : '';
   if (extra) modalExtra.x = extra.run;
-  $('#sheet').innerHTML = `<h3>${esc(title)}</h3>${body}<div class="acts">${ex}<button type="button" class="btn line" data-mact="close">Annuler</button>${submit ? `<button class="btn red" type="submit">${esc(submit)}</button>` : ''}</div>`;
+  $('#sheet').innerHTML = `<h3>${esc(title)}</h3>${body}<div class="acts">${ex}<button type="button" class="btn line" data-mact="close">${esc(cancel)}</button>${submit ? `<button class="btn red" type="submit">${esc(submit)}</button>` : ''}</div>`;
   $('#modal').hidden = false;
   setTimeout(() => $('#sheet').querySelector('input[type=text],input[type=password],input:not([type]),textarea')?.focus(), 30);
 }
@@ -525,7 +589,9 @@ const actions = {
         toast('Fusion faite'); }}); },
   logout: () => { ls.set('noel-me-' + eventId, ''); ui.acting = null; render(); },
   reset: () => confirmModal('Réinitialiser la démo ?', 'Les exemples de départ reviennent, tes essais sont effacés.', 'Réinitialiser', async () => { await store.reset(); }),
-  share: () => openModal({title:'Inviter la famille', submit:'', body:`<p>Envoie ce lien à chacun. Il suffit de cliquer dessus puis de choisir son prénom.</p>
+  help: () => openHelp(me() ? ui.tab : 'login'),
+  helpok: id => { helpSeen.add(id); ls.set(helpKey(id), '1'); render(); },
+  share: () => openModal({title:'Inviter la famille', submit:'', cancel:'Fermer', body:`<p>Envoie ce lien à chacun. Il suffit de cliquer dessus puis de choisir son prénom.</p>
       <div class="copybox"><input type="text" id="sharelink" readonly value="${esc(location.href)}"><button type="button" class="btn" data-mact="copy">Copier</button></div>
       <p class="hint">Garde ce lien dans la famille : toute personne qui l’a peut voir et modifier les listes.</p>`}),
   budget: () => { const A = acting(); openModal({title:'Budget de ' + A.name, body:`<label for="bd">Budget maximum en €</label><input type="text" id="bd" name="b" inputmode="decimal" value="${A.budget || ''}"><p class="hint">Laisse vide pour ne pas fixer de budget. Il sert seulement à te repérer.</p>`,
